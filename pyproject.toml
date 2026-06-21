@@ -1,0 +1,39 @@
+[project]
+name = "fastapi-docker-server"
+version = "0.1.0"
+description = "Production-grade boilerplate for running a FastAPI + uvicorn HTTP server in Docker."
+readme = "README.md"
+requires-python = ">=3.13"
+# Pinned exactly so builds are reproducible; bump deliberately, not by accident.
+# (uv.lock also locks the full dependency tree.)
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.1",
+]
+
+# Optional database backend. Install with `uv sync --extra db` (or `pip install .[db]`).
+# Without it the app runs on the in-memory store, so the default install stays light.
+[project.optional-dependencies]
+db = [
+    "sqlalchemy[asyncio]==2.0.51",
+    "aiosqlite==0.22.1",   # async driver for SQLite
+    "asyncpg==0.31.0",     # async driver for PostgreSQL
+]
+
+# Dev/test-only tooling. Installed by `uv sync` (default) but excluded from the
+# image via `uv sync --no-dev` in the Dockerfile. SQLAlchemy + aiosqlite are here
+# too so the SQLite-backend tests can run without the `db` extra.
+[dependency-groups]
+dev = [
+    "httpx==0.28.1",
+    "pytest==8.3.4",
+    "sqlalchemy[asyncio]==2.0.51",
+    "aiosqlite==0.22.1",
+]
+
+# `app/` lives at the project root (not installed as a package), so put the root
+# on sys.path for test collection — lets `from app.main import app` resolve.
+[tool.pytest.ini_options]
+pythonpath = ["."]

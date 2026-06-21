@@ -1,0 +1,31 @@
+# Keep the build context small and the image clean. Anything matched here is
+# never sent to the Docker daemon or copied by COPY commands.
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local config & secrets — never bake these into an image
+.env
+*.env
+!.env.example
+
+# Tooling / VCS
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Docs & tests (not needed at runtime)
+*.md
+tests/
+
+# OS cruft
+.DS_Store

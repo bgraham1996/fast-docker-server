@@ -1,0 +1,62 @@
+# docker-compose lets you define and run the container (and its friends, like a
+# database) with a single command: `docker compose up`. Great for local dev and
+# small deployments. Run it with:  docker compose up --build
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fastapi-docker-server:latest
+    container_name: fastapi-server
+    # Map host port 8000 -> container port 8000 ("host:container").
+    # Visit http://localhost:8000 once it's up.
+    ports:
+      - "8000:8000"
+    # Load environment variables from a .env file if present. required: false means
+    # `docker compose up` still works when you haven't created one.
+    env_file:
+      - path: .env
+        required: false
+    # Point the app at the Postgres service below. This overrides any DATABASE_URL
+    # from .env. Comment this line out to run the API on its in-memory store with
+    # no database at all (the `db` service then isn't needed).
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app:change-me@db:5432/app
+    # Wait for Postgres to be healthy before starting the API, so the first
+    # connection (and table creation) doesn't race the database coming up.
+    depends_on:
+      db:
+        condition: service_healthy
+    # Restart the container unless you explicitly stop it (survives crashes/reboots).
+    restart: unless-stopped
+    # Compose reads the Dockerfile HEALTHCHECK; you can also define it here.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else sys.exit(1)"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+  # Postgres database the API persists to. Compose puts both services on a shared
+  # network where the API reaches this one by its service name, `db` (see the host
+  # in DATABASE_URL above). To run without a database, comment out this service and
+  # the API's `environment`/`depends_on` blocks.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: change-me
+      POSTGRES_DB: app
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    # pg_isready is what `depends_on: service_healthy` waits on.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
