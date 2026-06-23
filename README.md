@@ -22,6 +22,7 @@ uv run uvicorn app.main:app --reload
 |--------|------|-------------|
 | GET | `/` | Service metadata |
 | GET | `/health` | Health check (`{"status":"ok"}`) |
+| GET | `/banner` | Logs an ASCII banner to the **server logs**, returns a JSON ack |
 | GET | `/docs` | Interactive API docs (Swagger UI) |
 | GET | `/items` | List items |
 | POST | `/items` | Create an item |
@@ -35,10 +36,25 @@ uv run uvicorn app.main:app --reload
   `HEALTHCHECK`.
 - **Swappable storage** — runs on an in-memory store by default, or SQLite / PostgreSQL when
   `DATABASE_URL` is set, behind one `ItemRepository` interface.
-- **docker-compose.yml** — one-command run; brings up the API with a PostgreSQL service.
+- **docker-compose.yml** — one-command run; brings up the API with a `pg_cron`-enabled
+  PostgreSQL service that schedules jobs inside the database.
 - **Tests** — fast `TestClient`-based smoke tests (`pytest`), in-memory and SQLite-backed.
 - **uv project** — dependencies in `pyproject.toml`, locked in `uv.lock` for reproducible builds.
 - **.dockerignore / .env.example** — clean builds and 12-factor configuration.
+
+## CLI client
+
+`cli.py` is a tiny HTTP client that talks to a **running** server, demonstrating
+the request → handler → log loop. Start the server first, then in another terminal:
+
+```bash
+uv run cli.py                 # against http://localhost:8000
+uv run cli.py --url http://host:port
+```
+
+It checks `/health`, calls `/banner` (watch the ASCII art appear in the *server's*
+logs), then walks the items API (create → list → get → delete). If the server
+isn't up it prints a friendly hint instead of a stack trace.
 
 ## Tests
 
@@ -72,3 +88,21 @@ DATABASE_URL=sqlite+aiosqlite:///./app.db uv run uvicorn app.main:app --reload
 `docker compose up --build` runs the API against PostgreSQL out of the box (the image bundles
 the `db` extra). To run container-side with no database, comment out the `environment:` and
 `depends_on:` blocks (and the `db` service) in `docker-compose.yml`.
+
+## Scheduled jobs (pg_cron)
+
+The Postgres service is built from `db/` (`postgres:16` + the [`pg_cron`](https://github.com/citusdata/pg_cron)
+extension) so the **database can schedule its own jobs** on cron syntax — no extra process.
+`db/init.sql` registers a demo job that appends a row to `cron_heartbeat` every minute.
+
+```bash
+docker compose up --build
+# wait a minute, then watch it tick:
+docker compose exec db psql -U app -d app -c \
+  "SELECT * FROM cron_heartbeat ORDER BY ran_at DESC LIMIT 5;"
+```
+
+Inspect the schedule with `SELECT * FROM cron.job;` and run history with
+`SELECT * FROM cron.job_run_details;`. Note: `db/init.sql` runs **only on a fresh data
+volume** — if you'd already started the stack, re-bootstrap with `docker compose down -v &&
+docker compose up --build` (this deletes DB data). See GUIDE.md §11 for the full walkthrough.

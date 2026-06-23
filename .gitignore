@@ -7,3 +7,6 @@ venv/
 .ruff_cache/
 .env
 .DS_Store
+
+# Obsidian per-machine UI state (keep the rest of .obsidian/ tracked)
+.obsidian/workspace.json

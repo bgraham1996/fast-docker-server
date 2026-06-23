@@ -29,6 +29,12 @@ def test_root():
     assert r.json()["docs"] == "/docs"
 
 
+def test_banner():
+    r = client.get("/banner")
+    assert r.status_code == 200
+    assert r.json()["logged"] is True
+
+
 def test_item_crud_flow():
     # Create
     r = client.post("/items", json={"name": "Widget", "price": 9.99})

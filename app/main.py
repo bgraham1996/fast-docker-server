@@ -21,6 +21,22 @@ logger = logging.getLogger("app")
 
 settings = get_settings()
 
+# ASCII banner logged by the /banner endpoint below. Kept as a module constant so
+# it's easy to find and tweak. The point is purely pedagogical: hitting the
+# endpoint writes these lines to the server's stdout, which is exactly where
+# Docker collects container logs — so `docker compose up` (or `docker logs`)
+# shows the art appear in real time, proving the request reached the handler.
+BANNER = r"""
+  ______        _      _    ____ ___
+ |  ____|      | |    /\   |  _ \_ _|
+ | |__ __ _ ___| |_  /  \  | |_) | |
+ |  __/ _` / __| __|/ /\ \ |  __/| |
+ | | | (_| \__ \ |_/ ____ \| |   | |
+ |_|  \__,_|___/\__/_/    \_\_|  |___|
+
+        ...the server is alive...
+"""
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -101,3 +117,16 @@ def health():
     container is healthy. Keep it cheap and dependency-light.
     """
     return {"status": "ok"}
+
+
+@app.get("/banner", tags=["meta"])
+def banner():
+    """Log an ASCII banner to the server's logs, and return a small JSON ack.
+
+    This is a teaching endpoint with no real-world job: it exists to make the
+    request → handler → log loop visible. When the CLI (or anyone) calls it, the
+    art shows up in the server's stdout — i.e. the `docker compose up` output or
+    `docker logs` — while the caller just gets back a tidy confirmation.
+    """
+    logger.info("Banner requested:\n%s", BANNER)
+    return {"logged": True, "service": settings.app_name, "version": __version__}

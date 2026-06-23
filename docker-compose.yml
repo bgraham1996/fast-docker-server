@@ -43,7 +43,21 @@ services:
   # in DATABASE_URL above). To run without a database, comment out this service and
   # the API's `environment`/`depends_on` blocks.
   db:
-    image: postgres:16-alpine
+    # Built from db/Dockerfile (postgres:16 + the pg_cron extension) instead of a
+    # stock image, so the database can schedule its own jobs. See db/init.sql.
+    build:
+      context: ./db
+    image: fastapi-docker-server-db:latest
+    # pg_cron must be loaded at server start, and its background worker runs against a
+    # single database — point it at `app` so the extension and jobs live there. These
+    # flags also apply to the temporary server the entrypoint uses for init scripts,
+    # so CREATE EXTENSION in init.sql succeeds.
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_cron"
+      - "-c"
+      - "cron.database_name=app"
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: change-me
